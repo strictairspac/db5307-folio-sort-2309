@@ -21,6 +21,7 @@ docker compose up -d --build --wait
 - PostgreSQL 16 端口 `127.0.0.1:17796`，账号 `app`，演示库 `workflow`
 - `docker compose exec -T backend python -m scripts.seed_demo` 手动重跑演示数据
 - `docker compose logs -f backend worker` 查看运行情况
+- 「执行」页可调整共享归并段容量；`SORT_CAPACITY_BYTES` 设初始额度，`WORKER_CONCURRENCY` 设同进程并行批次数
 - `docker compose down` 停容器并保留演示卷
 
 ### 演示账号

@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Iterator
 
-from .folio_runs import Entry, SortKey, sort_on_disk
+from .folio_runs import DiskPlan, Entry, SortKey, plan_disk, sort_on_disk
 
 SPEC = {
     "name": "微页典藏·馆藏征集号整理",
@@ -47,8 +47,13 @@ SPEC = {
         "初始磁盘段数": 5,
         "归并轮数": 3,
         "峰值归并输入段数": 2,
+        "归并段峰值占用字节": 786,
         "磁盘读取字节": 1494,
         "磁盘写入字节": 1494,
+    },
+    "capacity": {
+        "default_limit_bytes": 8 * 1024 * 1024,
+        "max_overtakes": 2,
     },
 }
 
@@ -136,20 +141,32 @@ def validate(payload):
         pass
 
 
-def solve(payload, engine):
+def measure(payload) -> DiskPlan:
+    """Validate the batch and predict its peak temporary-disk footprint."""
+    _, run_bytes, fan_in, records = _batch_inputs(payload)
+    return plan_disk(_entries(records, run_bytes), run_bytes, fan_in)
+
+
+def solve(payload, engine, work_root=None, run_id=None):
     batch_no, run_bytes, fan_in, records = _batch_inputs(payload)
+    # The plan is streamed from the same generator the sorter uses, so planning
+    # does not hold a second copy of the register in memory.
+    plan = plan_disk(_entries(records, run_bytes), run_bytes, fan_in)
     order, phases = sort_on_disk(
         _entries(records, run_bytes),
         run_bytes=run_bytes,
         fan_in=fan_in,
         key_from_line=_key_from_line,
         row_from_line=_row_from_line,
+        work_root=work_root,
+        run_id=run_id,
     )
     metrics = {
         "上架件数": len(order),
         "初始磁盘段数": phases[0].output_runs,
         "归并轮数": len(phases) - 2,
         "初始段峰值字节": phases[0].peak_chunk_bytes,
+        "归并段峰值占用字节": plan.peak_bytes,
         "峰值归并输入段数": max(phase.max_fan_in for phase in phases),
         "磁盘读取字节": sum(phase.bytes_read for phase in phases),
         "磁盘写入字节": sum(phase.bytes_written for phase in phases),

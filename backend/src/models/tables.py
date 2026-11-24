@@ -1,5 +1,5 @@
 from sqlalchemy import (JSON, Column, ForeignKey, Integer, MetaData, String,
-                        Table, Text)
+                        Table, Text, text)
 
 schema = MetaData()
 users = Table('accounts', schema,
@@ -24,6 +24,12 @@ runs = Table('business_runs', schema,
     Column('finished_at', String(32)),
     Column('created_at', String(32), nullable=False),
     Column('error', Text))
+run_plans = Table('run_disk_plans', schema,
+    Column('run_id', ForeignKey('business_runs.id'), primary_key=True),
+    Column('peak_bytes', Integer, nullable=False),
+    Column('initial_runs', Integer, nullable=False),
+    Column('overtakes', Integer, nullable=False, server_default=text('0')),
+    Column('created_at', String(32), nullable=False))
 evidence = Table('business_evidence', schema,
     Column('id', Integer, primary_key=True),
     Column('run_id', ForeignKey('business_runs.id'), nullable=False, unique=True),
@@ -38,3 +44,18 @@ audit = Table('audit_events', schema,
     Column('action', String(32), nullable=False),
     Column('reference', String(50), nullable=False),
     Column('created_at', String(32), nullable=False))
+capacity = Table('sort_capacity', schema,
+    Column('id', Integer, primary_key=True),
+    Column('limit_bytes', Integer, nullable=False),
+    Column('used_bytes', Integer, nullable=False, server_default=text('0')),
+    Column('updated_at', String(32), nullable=False))
+leases = Table('capacity_leases', schema,
+    Column('id', Integer, primary_key=True),
+    Column('run_id', ForeignKey('business_runs.id'), nullable=False, unique=True),
+    Column('bytes', Integer, nullable=False),
+    Column('status', String(16), nullable=False, index=True),
+    Column('worker_id', String(80)),
+    Column('created_at', String(32), nullable=False),
+    Column('heartbeat_at', String(32)),
+    Column('released_at', String(32)),
+    Column('cleanup_attempts', Integer, nullable=False, server_default=text('0')))

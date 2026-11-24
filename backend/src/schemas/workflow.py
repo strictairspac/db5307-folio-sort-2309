@@ -15,3 +15,7 @@ class CaseForm(BaseModel):
 
 class ReviewForm(BaseModel):
     note: str = Field(min_length=1, max_length=500)
+
+
+class CapacityForm(BaseModel):
+    limit_bytes: int = Field(ge=0, le=10**12)
